@@ -1,0 +1,350 @@
+//The automation process is made from C# codes.  This segment of codes is a new feature added into BEA News Release application. 
+//The codes read GDP file in excel. Pick the quarterly data and feeds them to X axis and Y axis of gdp_chart.js file.
+
+        private void cmd_xlsxDataset_Click(object sender, EventArgs e)
+        {//6/29/2016: import Excel sheets to DataSet
+
+            releaseName = CHOOSE_GDP;
+            currentnextrelsDate = Convert.ToDateTime("6/28/2016 8:30 am");
+            plot_gdpChart();
+        }
+
+        private static DataTable Excel_makeDataTableFromSheetName(string filename, string sheetName, out bool flag)
+        {//I import only "Table 1" to my dataset
+
+            DataTable dtImport = new DataTable();
+            if (sheetName == "'Table 1$'")                                                        //"Table 1" is tab name.  That tab houses "Table 1"
+            {
+                System.Data.OleDb.OleDbConnection myConnection = new System.Data.OleDb.OleDbConnection(
+                "Provider=Microsoft.ACE.OLEDB.12.0; " +
+                "data source='" + filename + "';" +
+                "Extended Properties=\"Excel 12.0;HDR=YES;IMEX=1\" ");
+
+
+                System.Data.OleDb.OleDbDataAdapter myImportCommand = new System.Data.OleDb.OleDbDataAdapter("select * from [" + sheetName + "]", myConnection);
+                myImportCommand.Fill(dtImport);
+                flag = true;
+            }
+            else
+                flag = false;                                                                     //I don't import all talbes except "Table 1"
+
+            return dtImport;
+        }
+
+        void Excel_Datatset_import(string file_xls, string file_js)
+        {//6/29/2016: import all the Excel sheets to DataSet
+         //Arg: file_xls = @"C:/News_Release_Posting_Folder/newsreleases/national/gdp/2016/xls/gdp1q16_3rd.xlsx"
+            //     file_js = @"C:/News_Release_Posting_Folder/newsreleases/national/gdp/gdp_chart.js";   
+             
+            //****Step 1: import the Excel sheets to DataSet. I import "Table 1" only to my dataSet. I exclude all of the other tables of the Excel file.
+            System.Data.OleDb.OleDbConnection myConnection = new System.Data.OleDb.OleDbConnection(
+                        "Provider=Microsoft.ACE.OLEDB.12.0; " +
+                         "data source='" + file_xls + "';" +
+                            "Extended Properties=\"Excel 12.0;HDR=YES;IMEX=1\" ");
+            myConnection.Open();
+            DataTable mySheets = myConnection.GetOleDbSchemaTable(OleDbSchemaGuid.Tables, new object[] { null, null, null, "TABLE" });
+            DataSet ds = new DataSet();
+            DataTable dt;
+            bool flag = false;
+            int i;
+            int ii;
+
+            for (i = 0; i < mySheets.Rows.Count; i++)
+            {
+                dt = Excel_makeDataTableFromSheetName(file_xls, mySheets.Rows[i]["TABLE_NAME"].ToString(), out flag);
+                if (flag == true)                                                                 //I want "Table 1" only. 
+                    ds.Tables.Add(dt);
+            }
+                        
+            //*****Step 2: retrieve data from the dataSet. 
+            //*****Here I retrieve data to feed values of X axis and Y axis of my plotly JS file. 
+            const string F1 = "f1.txt";
+            const string F2 = "f2.txt";
+            const string TEMPTXT = "temp.txt";
+
+            string a;
+            int colnum;
+            int lowerbound;
+            string path;
+            int upperbound;
+                        
+            colnum = ds.Tables[0].Columns.Count;
+            upperbound = 15;                                                                      //by default, Table 1 has 20 columns
+            i = upperbound;
+            while (i < colnum)
+            {
+                    a = ds.Tables[0].Rows[0][i].ToString();
+                    if (a == "")
+                    {
+                        upperbound = i - 1;
+                        break;
+                    }
+                    
+                    i++;
+            }
+            
+            lowerbound = 1;
+            i = lowerbound;
+            while (i > 0)
+            {
+                a = ds.Tables[0].Rows[0][i].ToString().Trim();
+                if (a != "")
+                {
+                    if (myCommon.myClasses.IsNumeric(a) == false)                                 //a = "Seasonally adjusted at annual rates". I start to take this column to the end of the row. I should have 16 columns.
+                    {
+                        if (myCommon.myClasses.IsNumeric(a.Substring(0,4)) == false)              //a = "2015r" is a string and it is annual revise. I don't take this column
+                        {
+                            lowerbound = i;
+                            break;
+                        }
+                    }
+                }
+
+                i++;
+            }
+
+            i = upperbound - lowerbound + 1;                                                      //7/5/2016: national folks plot data in 16 quarters. I have array size = 16
+            string[] arr_X = new string[i];
+            string[] arr_Y = new string[i];
+
+            ii = 0;
+            for (i = lowerbound; i <= upperbound; i++)                                            //Insert data into 2 arrays which are arr_X and arr_Y
+            {
+               a = ds.Tables[0].Rows[1][i].ToString() + "-" + ds.Tables[0].Rows[2][i].ToString();
+               arr_X[ii] = a;
+               
+               //MessageBox.Show(ds.Tables[0].Rows[2][i].ToString());
+
+               arr_Y[ii] = ds.Tables[0].Rows[3][i].ToString();
+               ii++;
+            }
+
+            //*****Step 3: update gdp_chart.js file.
+            i = file_js.LastIndexOf("/");
+            path = file_js.Substring(0, i);
+            a = file_js.Substring(i);
+            a = myCommon.myClasses.Turn_File_Into_AString(path, a);
+            i = a.ToLower().IndexOf("error_x: {");
+            
+            using (StreamWriter sw = File.CreateText(DIRTEMP + F1))
+            {
+                sw.WriteLine(a.Substring(0, i).TrimEnd());
+            }
+
+            using (StreamWriter sw = File.CreateText(DIRTEMP + F2))
+            {
+                sw.WriteLine("\n    " + a.Substring(i).TrimEnd());
+            }
+                
+            if (File.Exists (DIRTEMP + TEMPTXT))
+                File.Delete(DIRTEMP + TEMPTXT);
+
+            using (StreamWriter sw = File.CreateText(DIRTEMP + TEMPTXT))
+            {
+                using (StreamReader sr = File.OpenText(DIRTEMP + F1))                                 //update X and Y data
+                {
+                    while ((a = sr.ReadLine()) != null)
+                    {
+                        i = a.IndexOf("x: [");
+                        ii = a.IndexOf("y: [");
+                        
+                        if ((i != -1) && (ii == -1))
+                        {
+                            a = Excel_update_axis(a, arr_X);
+                        }
+
+                        if (ii != -1 && (i == -1))
+                        {
+                            a = Excel_update_axis(a, arr_Y);
+                        }
+                        
+                        sw.WriteLine(a);
+                    }
+                }
+            }
+
+            File.Copy(DIRTEMP + TEMPTXT, DIRTEMP + F1, true);
+                        
+            byte[] b1 = File.ReadAllBytes(DIRTEMP + F1);
+            byte[] b2 = File.ReadAllBytes(DIRTEMP + F2);
+            i = b1.Length + b2.Length  ;
+            byte[] Buffer = new byte[i];
+            System.Buffer.BlockCopy(b1, 0, Buffer, 0, b1.Length - 2);                             //I get rid of char linefeed and char return.  I remove the last two chars from F1 file.
+            System.Buffer.BlockCopy(b2, 0, Buffer, b1.Length, b2.Length - 2);                  //I get rid of char linefeed and char return.  I remove the last two chars from F2 file.
+            File.Delete(file_js);
+            File.WriteAllBytes(file_js, Buffer);
+            Buffer = null;
+        }
+
+        string Excel_update_axis(string sIn, string[] arr)
+        {//update data on axis X or axis Y listed in plotly.js file
+         //Args: data of gdp chart gdp1q16_2nd.xls  
+         //       sIn = 'x: ["2012-II", "2012-III", "2012-IV", "2013-I", "2013-II", "2013-III", "2013-IV", "2014-I", "2014-II", "2014-III", "2014-IV", "2015-I", "2015-II", "2015-III", "2015-IV", "2016-I"],
+         //    os sIn = 'y: ["1.9", "0.5", "0.1", "1.9", "1.1", "3", "3.8", "-0.9", "4.6", "4.3", "2.1", "0.6", "3.9", "2", "1.4", "0.8"],'
+
+            string a = "";
+            int i;
+            string shead;
+            string stail;
+
+            i = sIn.IndexOf("[");
+            shead = sIn.Substring(0, i + 1);                                                          //a = "    x: ["
+            i = sIn.IndexOf("]", i);
+            stail = sIn.Substring(i);                                                                 //b = "],\n"
+            for (i = 0; i < arr.Length; i++)
+            {
+                a = a + "\"" + arr[i] + "\", ";
+            }
+
+            a = a.Substring(0, a.Length - 2);
+            a = shead + a + stail;
+            return a;
+        }
+
+        void plot_gdpChart()
+        {//6/29/2016: import Excel sheets to DataSet
+
+            string a;
+            string fn;
+            string path_jsfile;
+            int i;
+            int ii;
+            string path = DIR_LOCKUP + "\\" + DIR_LOCKUP_SUB + "\\" + fileList;                   
+            string sSearch = "";
+
+            const string CHART_JS = "_chart.js";                                                  //gdp_chart.js, pi_chart.js, trad_chart.js, trans_chart.js
+
+            switch (releaseName)
+            {
+                case CHOOSE_GDP:
+                    sSearch = "/gdp/" + currentnextrelsDate.Year.ToString() + "/gdp";          //"/newsreleases/national/gdp/2016/gdp1q16_3rd.htm", I have sSearch = "/gdp/2016/gdp"
+                    break;
+            }
+
+            
+
+            //*****read fileList.txt and retrieve the gdp excel directory
+            fn = "";
+            if (sSearch != "")                                                                     //go to find gdp xls filename
+            {
+                using (StreamReader sr = File.OpenText(path))
+                {
+                    while ((a = sr.ReadLine()) != null)                                           //a = "1   /newsreleases/national/gdp/2016/gdp1q16_3rd.htm"
+                    {
+                        i = a.IndexOf(sSearch);
+                        ii = a.IndexOf(".htm"); 
+                        if ((i > -1) && (ii > -1))
+                        {
+                            i = a.LastIndexOf("/", ii);
+                            fn = a.Substring(i + 1, ii - i - 1) + ".xls";                         //fn = "/gdp1q16_3rd.xls"               
+                            break;
+                        }
+                    }
+                }
+
+                if (fn != "")
+                {
+                    using (StreamReader sr = File.OpenText(path))
+                    {
+                        while ((a = sr.ReadLine()) != null)
+                        {
+                            i = a.IndexOf("/" + fn);
+                            if (i > -1)
+                            {
+                                i = a.IndexOf("/");
+                                ii = a.IndexOf(" ", i);
+                                if (ii > -1)                                                      //this line handle the case there is a note. EX a = "7   /newsreleases/national/gdp/2016/xls/gdp1q16_3rd.xlsx    ****Tanya notes here"
+                                    a = a.Substring(0, ii);
+
+                                fn = a.Substring(i).Trim();                                       //fn = "/newsreleases/national/gdp/2016/xls/gdp1q16_3rd.xlsx"
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (fn == "")
+            {
+                a = "I can't find the Excel GDP file name.  Please enter today's Excel file name and its path (EX: /newsreleases/national/gdp/2016/xls/gdp1q16_3rd.xlsx)";
+                if (File.Exists(LOGFILE))
+                    myCommon.myClasses.log_to_NewsReleasese_logfile(true, a);
+                else
+                    myCommon.myClasses.log_to_NewsReleasese_logfile(false, a);
+
+                a = "";
+
+                string value = "/newsreleases/national/gdp/" + DateTime.Now.Year + "/xls/gdp????_???.xlsx";
+            myplot_gdpChart:
+                if (myCommon.myClasses.InputBox("Excel filename and path.  EX:/newsreleases/national/gdp/2016/xls/gdp1q16_3rd.xlsx", "Enter the excel filename and its path:", ref value) == DialogResult.OK)
+                {
+                    if (value != "")
+                        a = value;
+                    else
+                    {
+                        a = "Your input is blank";
+                        MessageBox.Show(a);
+                        goto myplot_gdpChart;
+                    }
+                }
+                else
+                {
+                    //goto myplot_gdpChart;
+                    a = "You chose Cancel, so I do nothing.  Bye!!!";
+                    MessageBox.Show(a);
+                }
+            }
+
+            //***** find path of gdp_chart.js
+            path_jsfile = "";
+            using (StreamReader sr = File.OpenText(path))
+            {
+                while ((a = sr.ReadLine()) != null)                                               //a = "8   /newsreleases/national/gdp/gdp_chart.js    ****Tanya notes here"
+                {
+                    i = a.IndexOf(CHART_JS);
+                    if (i > -1)
+                    {
+                        i = a.IndexOf("/");
+                        ii = a.IndexOf(" ", i);
+                        if (ii > -1)                                                              //this line handle the case there is a note. EX a = "8   /newsreleases/national/gdp/gdp_chart.js    ****Tanya notes here"
+                            a = a.Substring(0, ii);
+
+                        path_jsfile = a.Substring(i).Trim();                                       //path_jsfile = "/newsreleases/national/gdp/gdp_chart.js"
+                        break;
+                    }
+                }
+            }
+            
+            //***** update _chart.js file
+            a = PATH_LOCAL + fn;
+            if (File.Exists(a))
+            {
+                if (File.Exists(PATH_LOCAL + path_jsfile))
+                {
+                    Excel_Datatset_import(a, PATH_LOCAL + path_jsfile);                                            //a = "C:/News_Release_Posting_Folder/newsreleases/national/gdp/2016/xls/gdp1q16_3rd.xlsx"
+                    MessageBox.Show("Chart updated");
+                }
+                else
+                {
+                    if (path_jsfile == "")
+                        a = "You don't have   *" + CHART_JS + "  file listed in the fileList.txt.  I can't update chart for " + releaseName.ToUpper() + " . Bye!";
+                    else
+                        a = "*" + CHART_JS + " : file not found. I can't update chart for " + releaseName.ToUpper() + " . Bye!";
+                    
+                    MessageBox.Show(a);
+                    if (File.Exists(LOGFILE))
+                        myCommon.myClasses.log_to_NewsReleasese_logfile(true, a);
+                    else
+                        myCommon.myClasses.log_to_NewsReleasese_logfile(false, a);
+                }
+            }
+            else
+            {
+                a = fn + " : file not found. I can't update chart for " + releaseName.ToUpper() + " . Bye!";
+                MessageBox.Show(a);
+                if (File.Exists(LOGFILE))
+                    myCommon.myClasses.log_to_NewsReleasese_logfile(true, a);
+                else
+                    myCommon.myClasses.log_to_NewsReleasese_logfile(false, a);
+            }
+        }

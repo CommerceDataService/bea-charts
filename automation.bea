@@ -1,7 +1,7 @@
 //The automation process is made from C# codes.  This segment of codes is a new feature added into BEA News Release application. 
 //The codes read GDP file in excel. Pick the quarterly data and feeds them to X axis and Y axis of gdp_chart.js file.
 
-        private void cmd_xlsxDataset_Click(object sender, EventArgs e)
+private void cmd_xlsxDataset_Click(object sender, EventArgs e)
         {//6/29/2016: import Excel sheets to DataSet
 
             releaseName = CHOOSE_GDP;
@@ -33,7 +33,7 @@
 
         void Excel_Datatset_import(string file_xls, string file_js)
         {//6/29/2016: import all the Excel sheets to DataSet
-         //Arg: file_xls = @"C:/News_Release_Posting_Folder/newsreleases/national/gdp/2016/xls/gdp1q16_3rd.xlsx"
+            //Arg: file_xls = @"C:/News_Release_Posting_Folder/newsreleases/national/gdp/2016/xls/gdp1q16_3rd.xlsx"
             //     file_js = @"C:/News_Release_Posting_Folder/newsreleases/national/gdp/gdp_chart.js";   
              
             //****Step 1: import the Excel sheets to DataSet. I import "Table 1" only to my dataSet. I exclude all of the other tables of the Excel file.
@@ -61,6 +61,9 @@
             const string F1 = "f1.txt";
             const string F2 = "f2.txt";
             const string TEMPTXT = "temp.txt";
+            const string VAR_DATA   = "var data = [";
+            const string VAR_XVALUE = "var xValue = [";                                           //var xValue = ["2012-II", "2012-III", "2012-IV", "2013-I", "2013-II", "2013-III", "2013-IV", "2014-I", "2014-II", "2014-III", "2014-IV", "2015-I", "2015-II", "2015-III", "2015-IV", "2016-I"];
+            const string VAR_YVALUE = "var yValue = [";                                           //var yValue = ["1.9", "0.5", "0.1", "1.9", "1.1", "3.0", "3.8", "-0.9", "4.6", "4.3", "2.1", "0.6", "3.9", "2.0", "1.4", "1.1"];
 
             string a;
             int colnum;
@@ -124,7 +127,7 @@
             path = file_js.Substring(0, i);
             a = file_js.Substring(i);
             a = myCommon.myClasses.Turn_File_Into_AString(path, a);
-            i = a.ToLower().IndexOf("error_x: {");
+            i = a.ToLower().IndexOf(VAR_DATA);
             
             using (StreamWriter sw = File.CreateText(DIRTEMP + F1))
             {
@@ -145,8 +148,8 @@
                 {
                     while ((a = sr.ReadLine()) != null)
                     {
-                        i = a.IndexOf("x: [");
-                        ii = a.IndexOf("y: [");
+                        i  = a.IndexOf(VAR_XVALUE);
+                        ii = a.IndexOf(VAR_YVALUE);
                         
                         if ((i != -1) && (ii == -1))
                         {
@@ -179,8 +182,8 @@
         string Excel_update_axis(string sIn, string[] arr)
         {//update data on axis X or axis Y listed in plotly.js file
          //Args: data of gdp chart gdp1q16_2nd.xls  
-         //       sIn = 'x: ["2012-II", "2012-III", "2012-IV", "2013-I", "2013-II", "2013-III", "2013-IV", "2014-I", "2014-II", "2014-III", "2014-IV", "2015-I", "2015-II", "2015-III", "2015-IV", "2016-I"],
-         //    os sIn = 'y: ["1.9", "0.5", "0.1", "1.9", "1.1", "3", "3.8", "-0.9", "4.6", "4.3", "2.1", "0.6", "3.9", "2", "1.4", "0.8"],'
+         //       sIn = 'var xValue =  ["2012-II", "2012-III", "2012-IV", "2013-I", "2013-II", "2013-III", "2013-IV", "2014-I", "2014-II", "2014-III", "2014-IV", "2015-I", "2015-II", "2015-III", "2015-IV", "2016-I"],
+         //    os sIn = 'var yValue =  ["1.9", "0.5", "0.1", "1.9", "1.1", "3", "3.8", "-0.9", "4.6", "4.3", "2.1", "0.6", "3.9", "2", "1.4", "0.8"],'
 
             string a = "";
             int i;
@@ -220,9 +223,7 @@
                     sSearch = "/gdp/" + currentnextrelsDate.Year.ToString() + "/gdp";          //"/newsreleases/national/gdp/2016/gdp1q16_3rd.htm", I have sSearch = "/gdp/2016/gdp"
                     break;
             }
-
-            
-
+        
             //*****read fileList.txt and retrieve the gdp excel directory
             fn = "";
             if (sSearch != "")                                                                     //go to find gdp xls filename
@@ -347,4 +348,4 @@
                 else
                     myCommon.myClasses.log_to_NewsReleasese_logfile(false, a);
             }
-        }
+        }        

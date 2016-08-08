@@ -1,7 +1,7 @@
 //The automation process is made from C# codes.  This segment of codes is a new feature added into BEA News Release application. 
 //The codes read GDP file in excel. Pick the quarterly data and feeds them to X axis and Y axis of gdp_chart.js file.
 
-private void cmd_xlsxDataset_Click(object sender, EventArgs e)
+        private void cmd_xlsxDataset_Click(object sender, EventArgs e)
         {//6/29/2016: import Excel sheets to DataSet
 
             releaseName = CHOOSE_GDP;
@@ -64,11 +64,14 @@ private void cmd_xlsxDataset_Click(object sender, EventArgs e)
             const string VAR_DATA   = "var data = [";
             const string VAR_XVALUE = "var xValue = [";                                           //var xValue = ["2012-II", "2012-III", "2012-IV", "2013-I", "2013-II", "2013-III", "2013-IV", "2014-I", "2014-II", "2014-III", "2014-IV", "2015-I", "2015-II", "2015-III", "2015-IV", "2016-I"];
             const string VAR_YVALUE = "var yValue = [";                                           //var yValue = ["1.9", "0.5", "0.1", "1.9", "1.1", "3.0", "3.8", "-0.9", "4.6", "4.3", "2.1", "0.6", "3.9", "2.0", "1.4", "1.1"];
-
+            const string VAR_RANGEY = "var rangeY =";                                             //var rangeY = [-1.1, 5.1];
+            
             string a;
             int colnum;
             int lowerbound;
             string path;
+            double rangeY_min;
+            double rangeY_max;
             int upperbound;
                         
             colnum = ds.Tables[0].Columns.Count;
@@ -122,7 +125,7 @@ private void cmd_xlsxDataset_Click(object sender, EventArgs e)
                ii++;
             }
 
-            //*****Step 3: update gdp_chart.js file.
+            //*****Step 3: update gdp_chart.js file || x values and y value
             i = file_js.LastIndexOf("/");
             path = file_js.Substring(0, i);
             a = file_js.Substring(i);
@@ -167,7 +170,37 @@ private void cmd_xlsxDataset_Click(object sender, EventArgs e)
             }
 
             File.Copy(DIRTEMP + TEMPTXT, DIRTEMP + F1, true);
-                        
+
+            //*****Step 3: update gdp_chart.js file || update range.  Ignore the range of x value, but update the range of y value.
+
+            double[] arr_Y_double = arr_Y.Select(x => double.Parse(x)).ToArray();                 //convet string array to array with type double
+
+            rangeY_min = arr_Y_double.Min();
+            rangeY_max = arr_Y_double.Max();
+            
+            using (StreamWriter sw = File.CreateText(DIRTEMP + TEMPTXT))
+            {
+                using (StreamReader sr = File.OpenText(DIRTEMP + F1))                                 //update X and Y data
+                {
+                    while ((a = sr.ReadLine()) != null)
+                    {
+                        i = a.IndexOf(VAR_RANGEY);
+                        if (i > -1)
+                        {
+                            i = a.IndexOf(";");
+                            a = VAR_RANGEY + " [" + rangeY_min.ToString() + ", " + rangeY_max.ToString() + "]" + a.Substring(i);         //a = "var rangeY = [-1.1, 5.1];   //my notes blah blah blah..."
+                        }
+
+                        sw.WriteLine(a);
+                    }
+                }
+            }
+
+            File.Copy(DIRTEMP + TEMPTXT, DIRTEMP + F1, true);
+            File.Delete(DIRTEMP + TEMPTXT);
+
+            //*****Step 4: update gdp_chart.js file: combine two files F1 and F2 into one file known as file_js.
+                                   
             byte[] b1 = File.ReadAllBytes(DIRTEMP + F1);
             byte[] b2 = File.ReadAllBytes(DIRTEMP + F2);
             i = b1.Length + b2.Length  ;
@@ -348,4 +381,4 @@ private void cmd_xlsxDataset_Click(object sender, EventArgs e)
                 else
                     myCommon.myClasses.log_to_NewsReleasese_logfile(false, a);
             }
-        }        
+        }

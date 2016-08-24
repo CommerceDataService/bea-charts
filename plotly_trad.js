@@ -37,7 +37,7 @@ var layout = {
     family: "\"Open Sans\", verdana, arial, sans-serif", 
     size: 12
   }, 
-  height: 467.125, 
+  height: 482.875, 
   hidesources: false, 
   hovermode: "closest", 
   margin: {
@@ -46,7 +46,7 @@ var layout = {
     autoexpand: true, 
     b: 80, 
     l: 80, 
-    pad: 0
+    pad: 20
   }, 
   paper_bgcolor: "#fff", 
   plot_bgcolor: "#fff", 
@@ -59,21 +59,19 @@ var layout = {
     family: "\"Open Sans\", verdana, arial, sans-serif", 
     size: 17
   }, 
-  width: 832, 
+  width: 860, 
   xaxis: {
     anchor: "y", 
-    autorange: true, 
+    autorange: false, 
     categoryorder: "trace", 
     color: "#444", 
     domain: [0, 1], 
-    dtick: 47, 
+    dtick: 36, 
     exponentformat: "e", 
     fixedrange: false, 
     gridcolor: "rgb(238, 238, 238)", 
     gridwidth: 1, 
-    nticks: 4, 
-    range: [0, 185], 
-    rangemode: "normal", 
+    range: [48, 185], 
     showexponent: "all", 
     showgrid: true, 
     showline: false, 
@@ -86,7 +84,7 @@ var layout = {
       family: "\"Open Sans\", verdana, arial, sans-serif", 
       size: 10
     }, 
-    tickmode: "auto", 
+    tickmode: "linear", 
     tickprefix: "", 
     ticks: "", 
     ticksuffix: "", 
@@ -136,7 +134,7 @@ var layout = {
     titlefont: {
       color: "#444", 
       family: "\"Open Sans\", verdana, arial, sans-serif", 
-      size: 11
+      size: 10
     }, 
     type: "linear", 
     zeroline: true, 
